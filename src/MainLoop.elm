@@ -5,6 +5,8 @@ import Graphics.Element exposing (image, Element)
 import Keyboard
 import Signal exposing (Signal, map, merge, map2, foldp)
 import GameModel exposing (..)
+import Set
+import Char exposing (KeyCode)
 
 pcState : Character
 pcState = { x = 0, y = 0, dir = Right } -- tiredness strenght blabla
@@ -104,9 +106,38 @@ inputDir =
         (  1,  0 ) -> Right
         ( -1,  0 ) -> Left
         _ -> None
-  in merge (Signal.map dir Keyboard.arrows) (Signal.map dir Keyboard.wasd)
+  in Signal.mergeMany [ (Signal.map dir Keyboard.arrows)
+                      , (Signal.map dir Keyboard.wasd)
+                      , (Signal.map dir vimKeys)
+                      ]
 
 -- samples arrows when fps tick
 input : Signal Direction
 input =
     map (Debug.watch "direction") inputDir
+
+vimKeys : Signal { x:Int, y:Int }
+vimKeys =
+  dropMap (toXY { up = 75, down = 74, left = 72, right = 76 }) Keyboard.keysDown
+
+dropMap : (a -> b) -> Signal a -> Signal b
+dropMap f signal =
+  Signal.dropRepeats (Signal.map f signal)
+
+toXY : Directions -> Set.Set KeyCode -> { x : Int, y : Int }
+toXY {up,down,left,right} keyCodes =
+  let is keyCode =
+        if Set.member keyCode keyCodes
+        then 1
+        else 0
+  in
+    { x = is right - is left
+    , y = is up - is down
+    }
+
+type alias Directions =
+  { up : KeyCode
+  , down : KeyCode
+  , left : KeyCode
+  , right : KeyCode
+}
